@@ -20,11 +20,21 @@ def menu(selection):
     #Exit Program
         case 3:
             quit()
+#Generages and tests for 2 pseudo primes p & q
+def keyGenerator():
+    
+    
+def encrypt(message, pubKey):
+#Encypts a message (Output is C)
+def decrypt(C, priKey):
+#Decrypts crypt Message (Output is M)
+def sign(name, priKey):
+#Signs a signiture and returns it 
+def authent(S, pubKey): 
+#Authenticates a owner signeture (Returns M)
             
             
-            
-            
-#Main of Sorts
+#Main of Sorts (Frontend)
 #I/O Console First Part Output
 #While loop is to reshow if an improper selection is input
 selection = 4
