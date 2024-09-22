@@ -115,16 +115,13 @@ def encrypt(message, pubKey):
     n, e = pubKey
     #Weird calls here had to be looked up in order to 
     # switch from string to integer and back for proper encryption
-    '''
     enChars = []
     for char in message:
         charIntForm = ord(char)
         encryptedCharInt = fastExpo(charIntForm, e, n)
         enChars.append(encryptedCharInt.to_bytes((encryptedCharInt.bit_length()+7)//8, 'big'))
     return b''.join(enChars)
-'''
-    c =[fastExpo(ord(char), e, n) for char in message]
-    return c
+
 
 
 #Decrypts a message (Output is C)
@@ -138,7 +135,7 @@ def decrypt(C, priKey):
     requiredBytes = (n.bit_length() + 7) // 8
     message = fastExpo(CByteForm, d, n)
     return message.to_bytes((requiredBytes.bit_length() + 7) // 8, 'big').decode('utf-8')
-    
+    '''
     n, d = priKey
     decChars = []
     for enCharBytes in C.split(b'\x00'):
@@ -146,15 +143,10 @@ def decrypt(C, priKey):
             enCharInt = int.from_bytes(enCharBytes, 'big')
             deCharInt = fastExpo(enCharInt, d, n)
             decChars.append(chr(deCharInt))
+            
     return ''.join(decChars)
-    '''
-    n, d = priKey
-    mes = [fastExpo(chr(char), d, n) for char in C]
-
-    return ''.join(mes)
     
     
-
 
     
 #Decrypts crypt Message (Output is M)
@@ -176,8 +168,8 @@ def main():
     #Main of Sorts (Frontend)
     #I/O Console First Part Output
     #Needed Variables 
-    n1 = 1234
-    n2 = 1234
+    n1 = 123
+    n2 = 123
     k = 100
     encMesgs = []
     signatures = {}
