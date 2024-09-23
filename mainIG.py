@@ -5,7 +5,7 @@ Created on Wed Sep 11 12:20:20 2024
 @author: logan
 @function: This is the main driver for the console output
 """
-import random, math
+import random, math, time
 
 #Brute force test for QandP function to absolutly confirm prime identity 
 #Credit also due to the slides 
@@ -24,21 +24,21 @@ def testPrime_brute_force(p):
 
 #Fast Expo from code in blackboard
 def fastExpo(a, p, n):
-    Y = 1
-    while p > 0:
-        if p % 2 == 0:
-            a = (a * a) % n
-            p = p/2
-        else:
-            Y = (a * Y) % n
-            p = p - 1
-    return Y
+    ''' Returns a^p mod n '''
+    if p == 0:
+        return 1
+    if p%2 == 0:
+        t = fastExpo(a, p//2, n)
+        return (t*t)%n
+    else:
+        t = fastExpo(a, p//2, n)
+        return (a *(t**2%n))%n
 #GCD
 #used in key generator to get public key e
 #Input: a,b: Integers to find GCD of
 #Output a: GDC
 def gcd(a, b):
-    if b== 0:
+    if b == 0:
         return a
     else:
         return gcd(b, a%b)
@@ -49,9 +49,8 @@ def gcd(a, b):
 def extended_gcd(a, b):
     if b == 0:
         return (1, 0, a)
-    else:
-        gcd, x, y = extended_gcd(b, a % b)
-        return gcd, y, x - (a // b) * y
+    (x, y, d) = extended_gcd(b, a%b)
+    return y, x - a//b*y, d
 
 #Generages and tests for 2 pseudo primes p & q    
 #Input: n1, n2: two large integers
@@ -91,6 +90,9 @@ def keyGenerator(n1, n2, k):
     while not testPrime_brute_force(q):
         q = createPrime(n1, n2, k)
     
+    while q == p:  # Ensure p and q are distinct
+        q = createPrime(n1, n2, k)
+
     #Get n and phi_n
     n = q * p
     phi_n = (q-1)*(p-1)
@@ -100,10 +102,24 @@ def keyGenerator(n1, n2, k):
     while gcd(e, phi_n) != 1:
         e = random.randint(2, phi_n)
     
+    '''
     #Get private key d = Inverse of e in Zphi (ed mod phi_n = 1)
     de = extended_gcd(e, phi_n)
-    d = de[2] % phi_n
-    
+    d = de[0] % phi_n
+    '''
+    # Get private key d = Inverse of e in Zphi (ed mod phi_n = 1)
+    _, _, gcdv = extended_gcd(e, phi_n)
+
+    # Verify that e and phi_n are coprime
+    if gcdv != 1:
+        raise ValueError("e and phi_n are not coprime!")
+
+    d = extended_gcd(e, phi_n)[0] % phi_n
+
+    # Verify that d is the modular inverse of e
+    if (e * d) % phi_n != 1:
+        raise ValueError("Incorrect calculation of d!")
+
     #formatted to fit encryption and decryption inputs from flow chart
     return (n, e), (n, d)
 
@@ -112,16 +128,11 @@ def keyGenerator(n1, n2, k):
 #       (n,e): Public key
 #Output: c: Encrypted Message 
 def encrypt(message, pubKey):
+    
     n, e = pubKey
-    #Weird calls here had to be looked up in order to 
-    # switch from string to integer and back for proper encryption
-    enChars = []
-    for char in message:
-        charIntForm = ord(char)
-        encryptedCharInt = fastExpo(charIntForm, e, n)
-        enChars.append(encryptedCharInt.to_bytes((encryptedCharInt.bit_length()+7)//8, 'big'))
-    return b''.join(enChars)
-
+    encrypted_message = [pow(ord(char), e, n) for char in message]  # List comprehension for encryption
+    C = ' '.join(map(str, encrypted_message))  # Join encrypted codes with spaces
+    return encrypted_message
 
 
 #Decrypts a message (Output is C)
@@ -129,22 +140,9 @@ def encrypt(message, pubKey):
 #       (n,d): Private key
 #Output: c: Decrpted Message
 def decrypt(C, priKey):
-    '''
     n, d = priKey
-    CByteForm = int.from_bytes(C, 'big')
-    requiredBytes = (n.bit_length() + 7) // 8
-    message = fastExpo(CByteForm, d, n)
-    return message.to_bytes((requiredBytes.bit_length() + 7) // 8, 'big').decode('utf-8')
-    '''
-    n, d = priKey
-    decChars = []
-    for enCharBytes in C.split(b'\x00'):
-        if enCharBytes:
-            enCharInt = int.from_bytes(enCharBytes, 'big')
-            deCharInt = fastExpo(enCharInt, d, n)
-            decChars.append(chr(deCharInt))
-            
-    return ''.join(decChars)
+    decrypted_message = ''.join([chr(pow(char, d, n)) for char in C])  # List comprehension for decryption
+    return decrypted_message
     
     
 
@@ -155,24 +153,25 @@ def sign(name, priKey):
     n, d = priKey
     # Simplified signing without hashing for this prototype
     messageByteForm = int.from_bytes(name.encode('utf-8'), 'big')
-    signature = fastExpo(messageByteForm, d, n)
+    signature = pow(messageByteForm, d, n)
     return signature.to_bytes((signature.bit_length() + 7) // 8, 'big')
 def authent(S, pubKey): 
 #Authenticates a owner signeture (Returns M)
     n, e = pubKey
     SByteForm = int.from_bytes(S, 'big')
-    decrypByte = fastExpo(SByteForm, e, n)  # Decrypt the signature
+    decrypByte = pow(SByteForm, e, n)  # Decrypt the signature
     return decrypByte
 
 def main():
     #Main of Sorts (Frontend)
     #I/O Console First Part Output
     #Needed Variables 
-    n1 = 123
-    n2 = 123
+    n1 = 100
+    n2 = 200
     k = 100
     encMesgs = []
     signatures = {}
+    random.seed(time.time())
     pubKey, priKey = keyGenerator(n1, n2, k)
     #Call something here to generate keys
     print("RSA keys have been generated.")
@@ -211,7 +210,7 @@ def main():
                                 break
                             else:
                                 for i in range(len(signatures)):
-                                    print("{i+1}. {signatures[i]}")
+                                    print(f"{i+1}. {list(signatures.keys())[i]}") 
                             whSig = int(input("\nEnter your choice: ")) - 1
                             message = list(signatures.keys())[whSig]
                             signature = signatures[message]
@@ -241,11 +240,11 @@ def main():
                     match owSelection:
                         #Decrypt Message
                         case 1:
-                            if len(encMesgs) == 0:
+                            if not encMesgs:
                                 print("There are no messages to decrypt.")
                             else:
-                                for i,C in enumerate(encMesgs):  
-                                    print(f"{i + 1}. (length = {len(C)})")
+                                for i, C in enumerate(encMesgs):
+                                    print(f"{i + 1}. (length = {len(C)})")  # Display message lengths
 
                                 while True:
                                     try:
@@ -258,10 +257,10 @@ def main():
                                         print("Invalid input! Please enter a number.")
 
                                 try:
-                                    deMesg = decrypt(encMesgs[choice], priKey)
-                                    print(f"Decrypted message: {deMesg.upper()}")
-                                except (ValueError, IndexError):
-                                    print("Invalid choice! Please try again.")  
+                                    decrypted_message = decrypt(encMesgs[choice], priKey)
+                                    print(f"Decrypted message: {decrypted_message}")
+                                except Exception as e:
+                                    print(f"Error decrypting message: {e}") 
             
                         #Sign Message
                         case 2:
@@ -275,9 +274,10 @@ def main():
                             print(f"Private key: \n {priKey}")
                         #Generates new keys
                         case 4: 
-                            n1 = random.randint(1000, 10000)
-                            n2 = random.randint(1000, 10000)
+                            n1 = random.randint(100, 200)
+                            n2 = random.randint(n1, 300)
                             k = 100
+                            random.seed(time.time())
                             pubKey, priKey = keyGenerator(n1, n2, k)
                             encMesgs.clear()
                             signatures.clear()
